@@ -1,0 +1,72 @@
+# Real market footage test (free Pexels clips, Pexels License; see data/real/SOURCES.md).
+# Fixed-camera clips of real stalls, looped. Zones were drawn on the native frames.
+# Produce outside the model's 8 trained fruits runs on colour drift only (no model score).
+site:
+  store_id: segi-realtest-01
+  name: SEGI Cash & Carry - Real Footage Test
+model:
+  engine: models/freshness_fp16.engine
+  labels: models/labels.json
+scoring:
+  hysteresis_readings: 3
+alerts:
+  cooldown_s: 60
+storage:
+  db_path: data/real/freshwatch.db
+  persist_interval_s: 5
+  snapshot_dir: data/real/snapshots
+cameras:
+- id: stall-tagaytay
+  name: Roadside fruit stall (Tagaytay, PH)
+  source: file:data/real/tagaytay_stall.mp4
+  width: 1280
+  height: 720
+  fps: 24
+  analyze_interval_s: 1.0
+  zones:
+  - {id: T1, name: Hanging bananas, produce: banana, roi: [600, 100, 400, 140]}
+  - {id: T2, name: Mandarins, produce: orange, roi: [600, 245, 120, 80]}
+  - {id: T3, name: Red apples, produce: apple, roi: [830, 250, 145, 95]}
+  - {id: T4, name: Green guava, produce: guava, roi: [935, 345, 70, 120]}
+  - {id: T5, name: Pomelo, produce: pomelo, roi: [1005, 335, 130, 135]}
+  - {id: T6, name: Lanzones, produce: lanzones, roi: [490, 300, 210, 145]}
+  - {id: T7, name: Dragon fruit, produce: dragon_fruit, roi: [300, 285, 95, 150]}
+  - {id: T8, name: Jackfruit halves, produce: jackfruit, roi: [10, 225, 215, 180]}
+  - {id: T9, name: Pineapples, produce: pineapple, roi: [15, 445, 375, 165]}
+- id: wetmarket-indoor
+  name: Indoor vegetable wet market
+  source: file:data/real/indoor_veg_market.mp4
+  width: 800
+  height: 360
+  fps: 30
+  analyze_interval_s: 1.0
+  zones:
+  - {id: W1, name: Leafy greens, produce: sayur, roi: [25, 140, 135, 60]}
+  - {id: W2, name: Tomatoes, produce: tomato, roi: [415, 250, 70, 40]}
+  - {id: W3, name: Eggplant, produce: eggplant, roi: [495, 205, 65, 40]}
+  - {id: W4, name: Long beans, produce: long_bean, roi: [560, 225, 65, 75]}
+  - {id: W5, name: Sweet potato, produce: sweet_potato, roi: [580, 290, 100, 55]}
+  - {id: W6, name: Bananas, produce: banana, roi: [0, 200, 40, 60]}
+- id: stand-tropical
+  name: Tropical fruit stand (close-up)
+  source: file:data/real/tropical_fruit_stand.mp4
+  width: 1280
+  height: 720
+  fps: 25
+  analyze_interval_s: 1.0
+  zones:
+  - {id: F1, name: Green bananas, produce: banana, roi: [170, 330, 430, 230]}
+  - {id: F2, name: Ripe bananas (spotted), produce: banana, roi: [640, 430, 510, 270]}
+  - {id: F3, name: Mangoes, produce: mango, roi: [830, 210, 230, 190]}
+  - {id: F4, name: Pomelo, produce: pomelo, roi: [0, 560, 480, 160]}
+- id: veg-closeup
+  name: Vegetable stall (close-up)
+  source: file:data/real/veg_stall_closeup.mp4
+  width: 1280
+  height: 720
+  fps: 30
+  analyze_interval_s: 1.0
+  zones:
+  - {id: V1, name: Carrots, produce: carrot, roi: [0, 400, 320, 320]}
+  - {id: V2, name: Cucumbers, produce: cucumber, roi: [400, 170, 650, 520]}
+  - {id: V3, name: Sweet potato, produce: sweet_potato, roi: [0, 90, 450, 170]}

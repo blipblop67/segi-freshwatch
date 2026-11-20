@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreshWatch</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='18' r='11' fill='%230b7a4b'/%3E%3Cpath d='M16 7c1-4 5-5 8-4-1 3-4 5-8 4z' fill='%2347b36b'/%3E%3C/svg%3E">
+<style>
+  /* Everything is inline: the dashboard must work on a store LAN with no internet. */
+  :root {
+    --bg: #f3f5f4; --panel: #ffffff; --panel-2: #f8faf9; --ink: #14201a; --muted: #5f6e67; --line: #e1e7e4;
+    --brand: #0b7a4b; --brand-ink: #ffffff;
+    --fresh: #23924a; --aging: #c99000; --stale: #e06a00; --spoiled: #cf3030; --empty: #6f7a75; --unknown: #9aa6a0;
+    --shadow: 0 1px 2px rgba(16, 32, 24, .06), 0 2px 8px rgba(16, 32, 24, .04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1411; --panel: #161e1a; --panel-2: #1b2520; --ink: #e6eee9; --muted: #92a39a; --line: #26322c;
+      --brand: #3fbf7a; --brand-ink: #06150d; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --panel: #161e1a; --panel-2: #1b2520; --ink: #e6eee9; --muted: #92a39a; --line: #26322c;
+    --brand: #3fbf7a; --brand-ink: #06150d; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; }
+
+  /* Top bar */
+  .top { display: flex; align-items: center; gap: 18px; padding: 12px 24px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .mark { width: 38px; height: 38px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; }
+  .mark svg { width: 24px; height: 24px; }
+  .brand .p { font-size: 17px; font-weight: 750; letter-spacing: -.01em; }
+  .brand .s { color: var(--muted); font-size: 12.5px; }
+  .grow { flex: 1; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; color: var(--muted); background: var(--panel-2); white-space: nowrap; }
+  .chip b { color: var(--ink); font-weight: 650; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--unknown); flex: none; }
+  .dot.live { background: var(--fresh); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fresh) 25%, transparent); }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 15px; }
+  .iconbtn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: grid; place-items: center; }
+
+  .banner { display: none; background: var(--spoiled); color: #fff; padding: 9px 24px; font-weight: 600; }
+
+  .wrap { padding: 18px 24px 8px; max-width: 1680px; margin: 0 auto; }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, var(--brand)); }
+  .kpi .l { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+  .kpi .v { font-size: 28px; font-weight: 760; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .kpi .h { color: var(--muted); font-size: 12px; }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+  .card-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .card-h h2 { margin: 0; font-size: 14.5px; font-weight: 700; }
+  .card-b { padding: 14px; }
+
+  /* Camera */
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 11px; cursor: pointer; font-size: 13px; }
+  .tab.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  .tab .n { font-size: 11.5px; opacity: .75; font-variant-numeric: tabular-nums; }
+  .viewer { position: relative; background: #000; border-radius: 10px; overflow: hidden; aspect-ratio: 16 / 9; }
+  .viewer img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .nofeed { position: absolute; inset: 0; display: grid; place-content: center; gap: 6px; text-align: center; color: #cfd8d3; padding: 16px; }
+  .nofeed b { color: #fff; font-size: 15px; }
+  .viewer .ov { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .ov span { background: rgba(0, 0, 0, .62); color: #fff; border-radius: 6px; padding: 3px 8px; font-size: 12px; backdrop-filter: blur(4px); }
+  .ov .rec::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff4b4b; margin-right: 6px; vertical-align: 1px; }
+  .meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+  .meta b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* Zones */
+  .sec-h { display: flex; align-items: baseline; gap: 10px; margin: 20px 2px 10px; }
+  .sec-h h3 { margin: 0; font-size: 15px; }
+  .sec-h .m { color: var(--muted); font-size: 12.5px; }
+  .zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .zone { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); border-top: 4px solid var(--g); }
+  .zone .r { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .zone .nm { font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .zone .pr { color: var(--muted); font-size: 12.5px; text-transform: capitalize; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; color: #fff; background: var(--g); white-space: nowrap; }
+  .score { font-size: 30px; font-weight: 780; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .score small { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 2px; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .bar > div { height: 100%; background: var(--g); transition: width .6s ease; }
+  .act { font-size: 13px; font-weight: 600; min-height: 19px; }
+  .sub2 { color: var(--muted); font-size: 12px; }
+  canvas.spark { width: 100%; height: 30px; display: block; margin-top: 6px; }
+  .mode { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+  details { margin-top: 6px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; }
+  details[open] summary::before { content: "▾ "; }
+  .cues { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .cues b { color: var(--ink); font-weight: 600; }
+
+  /* Side panel */
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-left: auto; }
+  .seg button { border: 0; background: transparent; padding: 5px 11px; cursor: pointer; font-size: 12.5px; }
+  .seg button.on { background: var(--brand); color: var(--brand-ink); }
+  .task { display: grid; grid-template-columns: 4px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .task:last-child { border-bottom: 0; }
+  .task .s { border-radius: 2px; background: var(--g); }
+  .task .t1 { font-weight: 700; }
+  .task .t2 { font-size: 13px; }
+  .alert { padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .alert:last-child { border-bottom: 0; }
+  .alert .k { font-weight: 750; text-transform: uppercase; font-size: 11.5px; letter-spacing: .03em; color: var(--g); }
+  .alert.acked { opacity: .55; }
+  .alert .row { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+  .btn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 4px 10px; cursor: pointer; font-size: 12.5px; }
+  .btn:hover { border-color: var(--brand); }
+  a { color: var(--brand); }
+  .empty-st { color: var(--muted); padding: 18px 0; text-align: center; }
+  .empty-st .big { font-size: 28px; }
+  .side { display: grid; gap: 18px; position: sticky; top: 12px; }
+  .side .card-b { max-height: calc(100vh - 260px); overflow: auto; }
+
+  .tech { font-size: 12.5px; color: var(--muted); display: grid; gap: 6px; }
+  .tech div { display: flex; justify-content: space-between; gap: 10px; }
+  .tech b { color: var(--ink); font-weight: 600; text-align: right; }
+
+  /* Camera settings */
+  .topbtn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; height: 32px; padding: 0 11px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .topbtn:hover, .iconbtn:hover { border-color: var(--brand); }
+  .sheet { position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow: auto; }
+  .sheet[hidden] { display: none; }
+  .sheet-in { max-width: 980px; margin: 0 auto; padding: 18px 24px 40px; display: grid; gap: 18px; }
+  .sheet-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sheet-h h1 { margin: 0; font-size: 19px; }
+  .sheet-h .sp { flex: 1; }
+  .btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); font-weight: 600; }
+  .btn.danger { color: var(--spoiled); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.lg { padding: 7px 14px; font-size: 13.5px; }
+  .camrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .camrow:last-child { border-bottom: 0; }
+  .camrow .nm { font-weight: 700; }
+  .camrow .src { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .camrow .err { color: var(--spoiled); font-size: 12.5px; }
+  .found { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .found:last-child { border-bottom: 0; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .help { color: var(--muted); font-size: 12.5px; margin: 0; }
+  dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(640px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); box-shadow: 0 10px 40px rgba(0, 0, 0, .25); }
+  dialog::backdrop { background: rgba(10, 20, 15, .45); }
+  .dlg-h { padding: 14px 18px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 15px; }
+  .dlg-b { padding: 16px 18px; display: grid; gap: 12px; max-height: calc(100vh - 190px); overflow: auto; }
+  .dlg-f { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap; }
+  .dlg-f .sp { flex: 1; }
+  .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .fgrid .wide { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .fgrid { grid-template-columns: 1fr; } }
+  label.f { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  label.f input, label.f select { font: inherit; font-weight: 400; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; width: 100%; }
+  label.f input:focus, label.f select:focus { outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent); border-color: var(--brand); }
+  label.check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; cursor: pointer; }
+  label.check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--brand); flex: none; }
+  .radios { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+  .result { border-radius: 9px; padding: 10px 12px; font-size: 13px; border: 1px solid var(--line); background: var(--panel-2); }
+  .result.ok { border-color: var(--fresh); }
+  .result.bad { border-color: var(--spoiled); }
+  .result b { display: block; margin-bottom: 2px; }
+  .result img { display: block; width: 100%; border-radius: 6px; margin-top: 8px; }
+
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 22px 24px 28px; }
+  footer b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="14" r="7.5" fill="#fff"/><path d="M12 6.5c.6-3 3.4-4 5.8-3.4-.6 2.4-3 4-5.8 3.4z" fill="#bff0cf"/></svg></div>
+    <div><div class="p">FreshWatch</div><div class="s" id="site">AI produce freshness monitoring</div></div>
+  </div>
+  <div class="grow"></div>
+  <div class="chips">
+    <span class="chip"><span class="dot" id="cam-dot"></span><b id="cam-count">–</b> cameras live</span>
+    <span class="chip" id="edge">Edge AI</span>
+    <span class="chip" id="overall">Connecting…</span>
+  </div>
+  <div class="clock" id="clock">--:--</div>
+  <button class="topbtn" id="open-settings" title="Add cameras or change their IP address">⚙ Cameras</button>
+  <button class="iconbtn" id="theme" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+</div>
+<div class="banner" id="banner"></div>
+
+<div class="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid">
+    <section>
+      <div class="card">
+        <div class="card-h"><h2>Live cameras</h2><div class="tabs" id="camtabs"></div></div>
+        <div class="card-b">
+          <div class="viewer">
+            <img id="feed" alt="Live camera view with freshness grades per display">
+            <div class="nofeed" id="nofeed" hidden><b>No picture from this camera</b><span id="nofeed-why"></span><span><button class="btn" id="nofeed-fix" style="background:#fff;color:#14201a">Check camera settings</button></span></div>
+            <div class="ov" id="ov"></div>
+          </div>
+          <div class="meta" id="cammeta"></div>
+        </div>
+      </div>
+      <div class="sec-h"><h3 id="zones-title">Displays</h3><span class="m" id="zones-meta"></span></div>
+      <div class="zones" id="zones"></div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <div class="card-h"><h2>Staff actions</h2><div class="seg"><button id="v-tasks" class="on">To do</button><button id="v-log">Alert log</button></div></div>
+        <div class="card-b" id="side"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>System</h2></div>
+        <div class="card-b tech" id="tech"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+<footer>All video is analysed on this device. <b>No footage leaves the store.</b> · <span id="ver"></span></footer>
+
+<div class="sheet" id="settings" hidden>
+  <div class="sheet-in">
+    <div class="sheet-h">
+      <h1>Camera settings</h1><span class="sp"></span>
+      <button class="btn lg" id="close-settings">← Back to dashboard</button>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Cameras</h2><span class="sp" style="flex:1"></span><button class="btn primary lg" id="add-cam">+ Add IP camera</button></div>
+      <div class="card-b" id="camlist"><div class="empty-st">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Find cameras on the network</h2><span style="flex:1"></span><button class="btn lg" id="scan">Scan network</button></div>
+      <div class="card-b">
+        <p class="help">Lists ONVIF cameras on the same network as this device. Use it when a camera got a new IP address. You can recognise it by its MAC address (printed on the camera's label).</p>
+        <div id="found"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="camdlg">
+  <form id="camform" method="dialog" autocomplete="off">
+    <div class="dlg-h" id="dlg-title">Camera</div>
+    <div class="dlg-b">
+      <div class="fgrid">
+        <label class="f">Camera name<input name="name" required maxlength="60" placeholder="e.g. Vegetable aisle"></label>
+        <label class="f">Label on video (optional)<input name="note" maxlength="60" placeholder="e.g. Aisle 2"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="detect"> <span><b>Find produce automatically</b><br><span class="sub2">AI finds bananas, apples, oranges, broccoli and carrots anywhere in the picture and grades each one. Off: grade fixed displays marked in the setup.</span></span></label>
+      <div class="radios" id="kind-row" hidden>
+        <label><input type="radio" name="kind" value="keep" checked> Keep current source <span class="sub2" id="keep-src"></span></label>
+        <label><input type="radio" name="kind" value="rtsp"> Use an IP camera</label>
+      </div>
+      <div class="fgrid" id="rtsp-fields">
+        <label class="f">Camera brand<select name="brand" id="brand"></select></label>
+        <label class="f">IP address<input name="host" inputmode="decimal" placeholder="192.168.1.124" maxlength="253"></label>
+        <label class="f">RTSP port<input name="port" type="number" min="1" max="65535" value="554"></label>
+        <label class="f">Stream path<input name="path" class="mono" placeholder="/Preview_01_main" maxlength="200"></label>
+        <label class="f">Username<input name="username" maxlength="64" autocomplete="off"></label>
+        <label class="f">Password<input name="password" type="password" maxlength="128" autocomplete="new-password"></label>
+        <label class="f">Video encoding<select name="codec"><option value="h264">H.264</option><option value="h265">H.265 (HEVC)</option></select></label>
+        <p class="help" style="align-self:end" id="brand-hint">“Test connection” detects the encoding for you.</p>
+      </div>
+      <div class="result" id="test-result" hidden></div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" class="btn danger lg" id="del-cam">Remove camera</button>
+      <span class="sp"></span>
+      <button type="button" class="btn lg" id="cancel-cam">Cancel</button>
+      <button type="button" class="btn lg" id="test-cam">Test connection</button>
+      <button type="submit" class="btn primary lg" id="save-cam">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const LABEL = { fresh: "Fresh", aging: "Sell first", stale: "Mark down", spoiled: "Remove", empty: "Restock", unknown: "Calibrating" };
+const SEV = { spoiled: 4, stale: 3, empty: 2, aging: 1, fresh: 0, unknown: -1 };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const g = grade => `--g: var(--${grade})`;
+const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${s | 0}s ago` : s < 3600 ? `${(s / 60) | 0} min ago` : `${(s / 3600).toFixed(1)} h ago`; };
+const dur = s => s < 3600 ? `${(s / 60) | 0} min` : s < 86400 ? `${(s / 3600).toFixed(1)} h` : `${(s / 86400).toFixed(1)} days`;
+const pretty = s => String(s ?? "").replace(/_/g, " ");
+
+let cam = null, side = "tasks", hist = {}, last = null, openDetails = new Set(), camsKey = "";
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw Object.assign(new Error(r.statusText), { status: r.status });
+  return r.json();
+}
+
+// ---- theme (per-viewer convenience only)
+function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+try { applyTheme(localStorage.getItem("fw-theme")); } catch (e) {}
+$("theme").onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const t = dark ? "light" : "dark"; applyTheme(t);
+  try { localStorage.setItem("fw-theme", t); } catch (e) {}
+  if (last) render(last);
+};
+
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }, 1000);
+
+function setCam(id) {
+  cam = id;
+  try { localStorage.setItem("fw-cam", id); } catch (e) {}
+  if (last) { render(last); refreshHistory(last).then(() => render(last)); }
+}
+
+function spark(canvas, pts, color) {
+  const dpr = devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const c = canvas.getContext("2d"); c.scale(dpr, dpr); c.clearRect(0, 0, w, h);
+  if (pts.length < 2) return;
+  const t0 = pts[0].ts, t1 = pts[pts.length - 1].ts;
+  const xy = p => [(p.ts - t0) / (t1 - t0 || 1) * w, h - 2 - p.score * (h - 4)];
+  c.beginPath(); pts.forEach((p, i) => { const [x, y] = xy(p); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+  c.strokeStyle = color; c.lineWidth = 1.6; c.stroke();
+  c.lineTo(w, h); c.lineTo(0, h); c.closePath(); c.globalAlpha = .12; c.fillStyle = color; c.fill();
+}
+
+function worst(zones) { return zones.reduce((a, z) => SEV[z.grade] > SEV[a] ? z.grade : a, "unknown"); }
+
+function render(s) {
+  last = s;
+  const css = getComputedStyle(document.documentElement);
+  $("site").textContent = s.site.name;
+  document.title = `FreshWatch · ${s.site.name}`;
+
+  // top chips
+  const live = s.cameras.filter(c => c.connected).length;
+  $("cam-count").textContent = `${live}/${s.cameras.length}`;
+  $("cam-dot").className = "dot" + (live === s.cameras.length ? " live" : "");
+  $("edge").innerHTML = `Edge AI · <b>${esc(s.gpu.device || s.gpu.name)}</b>`;
+  const need = s.zones.filter(z => SEV[z.grade] > 0).length;
+  $("overall").innerHTML = s.degraded ? `<span class="dot" style="background:var(--stale)"></span><b>Colour-only mode</b>`
+    : need ? `<span class="dot" style="background:var(--${worst(s.zones)})"></span><b>${need}</b> display${need > 1 ? "s" : ""} need attention`
+    : `<span class="dot live"></span><b>All displays fresh</b>`;
+
+  const down = s.cameras.filter(c => !c.connected);
+  $("banner").style.display = down.length ? "block" : "none";
+  $("banner").textContent = down.map(c => `Camera "${c.name || c.id}" offline (${c.error || "no frames"})`).join(" · ");
+
+  // KPIs
+  const n = k => s.summary[k] || 0, total = s.zones.length;
+  const kpis = [
+    ["Displays monitored", total, `${s.cameras.length} cameras`, "var(--brand)"],
+    ["Fresh", n("fresh"), total ? `${Math.round(n("fresh") / total * 100)}% of displays` : "", "var(--fresh)"],
+    ["Sell first", n("aging"), "rotate stock", "var(--aging)"],
+    ["Mark down", n("stale"), "discount today", "var(--stale)"],
+    ["Remove now", n("spoiled"), "take off display", "var(--spoiled)"],
+    ["Restock", n("empty"), "display empty", "var(--empty)"],
+  ];
+  $("kpis").innerHTML = kpis.map(([l, v, h, c]) => `<div class="kpi" style="--c:${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="h">${h}</div></div>`).join("");
+
+  // camera tabs (rebuilt only when the camera list changes)
+  const key = s.cameras.map(c => `${c.id}:${c.name}`).join("|");
+  if (key !== camsKey) {
+    camsKey = key;
+    let saved = null; try { saved = localStorage.getItem("fw-cam"); } catch (e) {}
+    if (!cam || !s.cameras.some(c => c.id === cam)) {  // first load, or the selected camera was removed
+      cam = s.cameras.some(c => c.id === saved) ? saved : s.cameras[0]?.id;
+    }
+  }
+  if (s.cameras.some(c => c.id === cam) && $("feed").dataset.cam !== cam) {  // one place switches the video
+    $("feed").dataset.cam = cam;
+    $("feed").src = `/api/v1/cameras/${encodeURIComponent(cam)}/stream.mjpg`;
+  }
+  if ($("camtabs").dataset.key !== key) {  // build once; update in place so clicks never hit a replaced node
+    $("camtabs").dataset.key = key;
+    $("camtabs").innerHTML = s.cameras.map(c => `<button class="tab" data-id="${esc(c.id)}"><span class="dot"></span>${esc(c.name || c.id)}<span class="n"></span></button>`).join("");
+    document.querySelectorAll("#camtabs .tab").forEach(b => b.onclick = () => setCam(b.dataset.id));
+  }
+  document.querySelectorAll("#camtabs .tab").forEach(b => {
+    const c = s.cameras.find(c => c.id === b.dataset.id), zs = s.zones.filter(z => z.camera_id === b.dataset.id);
+    b.classList.toggle("on", b.dataset.id === cam);
+    b.querySelector(".dot").style.background = `var(--${c && c.connected ? worst(zs) : "unknown"})`;
+    b.querySelector(".n").textContent = zs.length;
+  });
+
+  const c = s.cameras.find(c => c.id === cam);
+  const czones = s.zones.filter(z => z.camera_id === cam);
+  if (c) {
+    const l = c.latency_ms || {};
+    $("ov").innerHTML = `<span class="rec">${c.connected ? "LIVE" : "OFFLINE"}</span>` + (c.note ? `<span>${esc(c.note)}</span>` : "");
+    $("nofeed").hidden = c.connected; $("feed").style.visibility = c.connected ? "" : "hidden";  // never show another camera's last frame
+    $("nofeed-why").textContent = c.error || "Waiting for the first picture…";
+    $("cammeta").innerHTML = `<span>Resolution <b>${c.width}×${c.height}</b></span>` +
+      `<span>GPU analysis <b>${l.gpu_total ? l.gpu_total.toFixed(1) + " ms" : "–"}</b> per frame</span>` +
+      `<span>Last analysed <b>${c.last_analysis ? ago(c.last_analysis) : "–"}</b></span>`;
+    $("zones-title").textContent = c.name || c.id;
+    const nz = czones.filter(z => SEV[z.grade] > 0).length;
+    $("zones-meta").textContent = c.detect
+      ? (czones.length ? `${czones.length} item${czones.length > 1 ? "s" : ""} found by AI · ${nz ? nz + " need attention" : "all fresh"}` : "AI is looking for produce")
+      : czones.length ? `${czones.length} displays · ${nz ? nz + " need attention" : "all fresh"}` : "Live view only";
+  }
+
+  // zone cards
+  document.querySelectorAll("#zones details").forEach(d => d.open ? openDetails.add(d.dataset.k) : openDetails.delete(d.dataset.k));
+  $("zones").innerHTML = czones.map(z => {
+    const pct = z.score == null ? null : Math.round(z.score * 100), L = z.last || {}, cu = L.cues || {}, k = `${z.camera_id}/${z.zone_id}`;
+    const age = z.grade_since ? Date.now() / 1000 - z.grade_since : null;
+    const since = age == null ? "" : `${LABEL[z.grade]} ${age < 60 ? "since just now" : "for " + dur(age)}`;
+    const eta = z.hours_to_markdown != null ? ` · ≈ ${z.hours_to_markdown.toFixed(1)} h to markdown` : "";
+    const ai = z.analysis === "ai+colour";
+    return `<div class="zone" style="${g(z.grade)}">
+      <div class="r"><span class="nm" title="${esc(z.name)}">${esc(z.name)}</span><span class="badge">${LABEL[z.grade]}</span></div>
+      <div class="r"><span class="pr">${esc(pretty(z.produce))}${z.detect_score != null ? ` <span class="sub2">· found ${Math.round(z.detect_score * 100)}%</span>` : ""}</span><span class="mode" title="${ai ? "AI model + CUDA colour analysis" : "CUDA colour analysis (AI model not trained for this produce yet)"}">${ai ? "AI + colour" : "Colour"}</span></div>
+      <div class="r" style="margin-top:6px"><span class="score">${pct == null ? "–" : pct}<small>${pct == null ? "" : "/100"}</small></span></div>
+      <div class="bar"><div style="width:${pct || 0}%"></div></div>
+      <div class="act">${z.grade === "fresh" ? "No action needed" : esc(z.action)}</div>
+      <div class="sub2">${esc(since)}${eta}</div>
+      <canvas class="spark" data-key="${esc(k)}" data-grade="${z.grade}"></canvas>
+      <details data-k="${esc(k)}" ${openDetails.has(k) ? "open" : ""}><summary>Analysis details</summary>
+        <div class="cues">
+          <span>AI freshness <b>${L.p_fresh == null ? "n/a" : Math.round(L.p_fresh * 100) + "%"}</b></span>
+          <span>Colour vs. baseline <b>${L.color_score == null ? "calibrating" : Math.round(L.color_score * 100)}</b></span>
+          <span>Browning <b>${cu.brown_ratio == null ? "–" : (cu.brown_ratio * 100).toFixed(1) + "%"}</b></span>
+          <span>Dark spots <b>${cu.dark_ratio == null ? "–" : (cu.dark_ratio * 100).toFixed(1) + "%"}</b></span>
+          <span>Mould <b>${cu.mould_ratio == null ? "–" : (cu.mould_ratio * 100).toFixed(1) + "%"}</b></span>
+          <span>Fill level <b>${cu.foreground_ratio == null ? "–" : Math.round(cu.foreground_ratio * 100) + "%"}</b></span>
+        </div></details>
+    </div>`;
+  }).join("") || (c?.detect
+    ? `<div class="empty-st">${c.detector_error ? "The produce detector is not available: " + esc(c.detector_error) : "No produce in view. Show a banana, apple, orange, broccoli or carrot to the camera."}</div>`
+    : `<div class="empty-st">No produce displays set up for this camera yet. The live picture works; freshness grading starts once its displays are marked out.</div>`);
+  document.querySelectorAll("canvas.spark").forEach(cv => spark(cv, hist[cv.dataset.key] || [], css.getPropertyValue(`--${cv.dataset.grade}`).trim()));
+
+  if (side === "tasks") renderTasks(s);
+
+  // system
+  const lat = s.cameras.map(c => c.latency_ms?.gpu_total).filter(Boolean);
+  $("tech").innerHTML = [
+    ["Device", esc(s.gpu.device || s.gpu.name)],
+    ["GPU", `${esc(s.gpu.name)} · CUDA sm_${esc(s.gpu.sm.replace(".", ""))}`],
+    ["AI model", s.model ? `TensorRT FP16 · ${s.model.produce.length} fruit types` : "unavailable (colour-only)"],
+    ["Analysis speed", lat.length ? `${(lat.reduce((a, b) => a + b, 0) / lat.length).toFixed(1)} ms per frame` : "–"],
+    ["Cameras", `${live} of ${s.cameras.length} online`],
+    ["Running for", s.uptime_s != null ? dur(s.uptime_s) : "–"],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  $("ver").textContent = `FreshWatch v${s.version} · ${s.site.store_id}`;
+}
+
+function renderTasks(s) {
+  const todo = s.zones.filter(z => SEV[z.grade] > 0).sort((a, b) => SEV[b.grade] - SEV[a.grade] || (a.grade_since || 0) - (b.grade_since || 0));
+  $("side").innerHTML = todo.length ? todo.map(z => `
+    <div class="task" style="${g(z.grade)}"><div class="s"></div><div>
+      <div class="r" style="display:flex;justify-content:space-between;gap:8px"><span class="t1">${esc(z.name)}</span><span class="badge">${LABEL[z.grade]}</span></div>
+      <div class="t2">${esc(z.action)}</div>
+      <div class="sub2">${esc(z.camera_name)} · since ${z.grade_since ? new Date(z.grade_since * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "–"}</div>
+    </div></div>`).join("")
+    : `<div class="empty-st"><div class="big">✓</div>All displays are fresh. Nothing to do.</div>`;
+}
+
+async function renderLog() {
+  const list = await api(`/api/v1/alerts?limit=60`);
+  const kindGrade = a => a.grade || (a.kind === "empty" ? "empty" : a.kind === "mismatch" ? "aging" : "spoiled");
+  const kindLabel = { mismatch: "Check label", camera_down: "Camera offline", empty: "Restock" };
+  $("side").innerHTML = list.length ? list.map(a => `
+    <div class="alert ${a.acknowledged_ts ? "acked" : ""}" style="${g(kindGrade(a))}">
+      <div><span class="k">${esc(kindLabel[a.kind] || LABEL[a.grade] || a.kind)}</span> <span class="sub2">· ${new Date(a.ts * 1000).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span></div>
+      <div>${esc(a.message)}</div>
+      <div class="row">
+        ${a.snapshot ? `<a href="/api/v1/alerts/${a.id}/snapshot.jpg" target="_blank" rel="noopener">Evidence photo</a>` : ""}
+        ${a.acknowledged_ts ? `<span class="sub2">Handled by ${esc(a.acknowledged_by)} · ${ago(a.acknowledged_ts)}</span>` : `<button class="btn" data-ack="${a.id}">Mark handled</button>`}
+      </div>
+    </div>`).join("") : `<div class="empty-st">No alerts yet.</div>`;
+  document.querySelectorAll("[data-ack]").forEach(b => b.onclick = () => ack(b.dataset.ack));
+}
+
+// Staff-only calls: send the staff key if the service has one, asking once per browser session.
+async function staffFetch(path, opts = {}, why = "this") {
+  let key = null;
+  try { key = sessionStorage.getItem("fw-key"); } catch (e) {}
+  const send = k => fetch(path, Object.assign({}, opts, { headers: Object.assign({ "X-User": "dashboard" }, opts.body ? { "Content-Type": "application/json" } : {}, k ? { "X-API-Key": k } : {}) }));
+  let r = await send(key);
+  if (r.status === 401) {
+    key = prompt(`Staff key required to ${why}:`);
+    if (!key) return null;
+    r = await send(key);
+    if (r.ok) { try { sessionStorage.setItem("fw-key", key); } catch (e) {} }
+  }
+  return r;
+}
+
+async function ack(id) {
+  await staffFetch(`/api/v1/alerts/${id}/ack`, { method: "POST" }, "mark alerts as handled");
+  renderLog();
+}
+
+function setSide(v) {
+  side = v;
+  $("v-tasks").classList.toggle("on", v === "tasks"); $("v-log").classList.toggle("on", v === "log");
+  v === "log" ? renderLog() : last && renderTasks(last);
+}
+$("v-tasks").onclick = () => setSide("tasks");
+$("v-log").onclick = () => setSide("log");
+
+async function refreshHistory(s) {
+  await Promise.all(s.zones.filter(z => z.camera_id === cam).map(async z => {
+    try {
+      const h = await api(`/api/v1/zones/${encodeURIComponent(z.camera_id)}/${encodeURIComponent(z.zone_id)}/history?hours=2&max_points=200`);
+      hist[`${z.camera_id}/${z.zone_id}`] = h.live.length > 1 ? h.live : h.persisted.filter(p => p.score != null);
+    } catch (e) { /* history is best-effort */ }
+  }));
+}
+
+// ---- camera settings
+const BRANDS = {
+  reolink: { label: "Reolink", path: "/Preview_01_main", user: "admin", hint: "RTSP must be switched on in the Reolink app (Settings › Network › Advanced › Server settings). Older firmware uses /h264Preview_01_main." },
+  hikvision: { label: "Hikvision / HiLook", path: "/Streaming/Channels/101", user: "admin" },
+  dahua: { label: "Dahua / Imou", path: "/cam/realmonitor?channel=1&subtype=0", user: "admin" },
+  tapo: { label: "TP-Link Tapo / VIGI", path: "/stream1", user: "", hint: "Use the camera account created in the Tapo app (Camera settings › Advanced › Camera account), not your TP-Link login." },
+  uniview: { label: "Uniview", path: "/unicast/c1/s0/live", user: "admin" },
+  axis: { label: "Axis", path: "/axis-media/media.amp", user: "root" },
+  other: { label: "Other / ONVIF", path: "", user: "", hint: "Find the RTSP stream path in the camera's manual or web settings." },
+};
+const VENDOR_BY_MAC = { "ec:71:db": "reolink" };  // brands we can recognise from the MAC prefix
+const form = $("camform"), dlg = $("camdlg");
+$("brand").innerHTML = Object.entries(BRANDS).map(([k, b]) => `<option value="${k}">${esc(b.label)}</option>`).join("");
+let cams = [], editing = null;
+
+const camStatus = c => c.connected ? `<span class="dot live"></span>` : `<span class="dot" style="background:var(--spoiled)"></span>`;
+async function loadCams() {
+  const r = await staffFetch("/api/v1/settings/cameras", {}, "change camera settings");
+  if (!r) { closeSettings(); return; }
+  if (!r.ok) { $("camlist").innerHTML = `<div class="empty-st">Could not load cameras (${r.status}).</div>`; return; }
+  cams = await r.json();
+  $("camlist").innerHTML = cams.map(c => `
+    <div class="camrow">${camStatus(c)}
+      <div><div class="nm">${esc(c.name || c.id)}</div>
+        <div class="src">${c.kind === "rtsp" ? `IP camera · <span class="mono">${esc(c.host)}:${c.port}</span>` : esc(c.source)} · ${c.zones ? `${c.zones} displays` : "live view only"}</div>
+        ${c.connected ? "" : `<div class="err">Offline: ${esc(c.error || "no picture yet")}</div>`}</div>
+      <button class="btn lg" data-edit="${esc(c.id)}">Edit</button>
+    </div>`).join("") || `<div class="empty-st">No cameras yet.</div>`;
+  document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openCam(cams.find(c => c.id === b.dataset.edit)));
+}
+async function openSettings() { $("settings").hidden = false; document.body.style.overflow = "hidden"; await loadCams(); }
+function closeSettings() { $("settings").hidden = true; document.body.style.overflow = ""; }
+$("open-settings").onclick = openSettings;
+$("nofeed-fix").onclick = async () => { await openSettings(); const c = cams.find(c => c.id === cam); if (c) openCam(c); };
+$("close-settings").onclick = closeSettings;
+$("add-cam").onclick = () => openCam(null);
+
+function showKind() {
+  const keep = !$("kind-row").hidden && form.kind.value === "keep";
+  $("rtsp-fields").hidden = keep; $("test-cam").hidden = keep;
+}
+form.querySelectorAll("[name=kind]").forEach(r => r.onchange = showKind);
+function brandHint() { $("brand-hint").textContent = BRANDS[form.brand.value]?.hint || "“Test connection” detects the encoding for you."; }
+$("brand").onchange = () => {
+  const b = BRANDS[form.brand.value];
+  if (b.path) form.path.value = b.path;
+  if (b.user || !form.username.value) form.username.value = b.user;
+  brandHint();
+};
+function guessBrand(path) { return Object.keys(BRANDS).find(k => BRANDS[k].path && BRANDS[k].path === path) || "other"; }
+
+function openCam(c, prefill = {}) {
+  editing = c;
+  form.reset();
+  $("test-result").hidden = true;
+  $("dlg-title").textContent = c ? `Edit camera · ${c.name || c.id}` : "Add IP camera";
+  $("del-cam").hidden = !c;
+  form.name.value = c?.name || prefill.name || "";
+  form.note.value = c?.note || "";
+  const rtsp = !c || c.kind === "rtsp";
+  $("kind-row").hidden = rtsp;
+  $("keep-src").textContent = c && !rtsp ? `(${c.source})` : "";
+  if (c && !rtsp) form.kind.value = "keep";
+  const brand = c?.kind === "rtsp" ? guessBrand(c.path) : prefill.brand || "reolink";
+  form.brand.value = brand;
+  form.host.value = c?.host || prefill.host || "";
+  form.port.value = c?.port || 554;
+  form.path.value = c?.kind === "rtsp" ? c.path : BRANDS[brand].path;
+  form.username.value = c?.kind === "rtsp" ? c.username : BRANDS[brand].user;
+  form.password.placeholder = c?.has_password ? "Saved. Leave empty to keep it" : "";
+  form.codec.value = c?.codec || "h264";
+  form.detect.checked = c ? !!c.detect : true;  // new cameras find produce by themselves
+  brandHint(); showKind();
+  dlg.showModal();
+}
+$("cancel-cam").onclick = () => dlg.close();
+
+function formBody() {
+  const keep = !$("kind-row").hidden && form.kind.value === "keep";
+  const body = { name: form.name.value.trim(), note: form.note.value.trim(), kind: keep ? "keep" : "rtsp", detect: form.detect.checked };
+  if (!keep) Object.assign(body, {
+    host: form.host.value.trim(), port: Number(form.port.value) || 554, path: form.path.value.trim() || "/",
+    username: form.username.value.trim(), codec: form.codec.value,
+    password: form.password.value === "" && editing?.has_password ? null : form.password.value,
+  });
+  return body;
+}
+function result(ok, title, msg, img) {
+  const el = $("test-result");
+  el.hidden = false; el.className = "result " + (ok ? "ok" : "bad");
+  el.innerHTML = `<b>${esc(title)}</b>${esc(msg)}` + (img ? `<img src="${img}" alt="Picture from the camera">` : "");
+}
+const errText = async r => { try { const j = await r.json(); return typeof j.detail === "string" ? j.detail : (j.detail || []).map(d => `${d.loc?.slice(-1)[0]}: ${d.msg}`).join("; "); } catch (e) { return r.statusText; } };
+
+$("test-cam").onclick = async () => {
+  if (!form.host.value.trim()) { form.host.focus(); return; }
+  const btn = $("test-cam"); btn.disabled = true; btn.textContent = "Testing…";
+  result(true, "Connecting…", "This can take up to 20 seconds.");
+  try {
+    const r = await staffFetch("/api/v1/settings/cameras/test", { method: "POST", body: JSON.stringify(Object.assign(formBody(), { camera_id: editing?.id })) }, "change camera settings");
+    if (!r) return;
+    if (!r.ok) { result(false, "Check the form", await errText(r)); return; }
+    const t = await r.json();
+    if (t.codec) form.codec.value = t.codec;
+    result(t.ok, t.ok ? "Connected" : "Not connected", t.message, t.snapshot);
+  } catch (e) { result(false, "Not connected", "The FreshWatch service did not answer."); }
+  finally { btn.disabled = false; btn.textContent = "Test connection"; }
+};
+
+form.onsubmit = async ev => {
+  ev.preventDefault();
+  if (!form.reportValidity()) return;
+  const btn = $("save-cam"); btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const r = await staffFetch(editing ? `/api/v1/settings/cameras/${encodeURIComponent(editing.id)}` : "/api/v1/settings/cameras",
+      { method: editing ? "PUT" : "POST", body: JSON.stringify(formBody()) }, "change camera settings");
+    if (!r) return;
+    if (!r.ok) { result(false, "Not saved", await errText(r)); return; }
+    const saved = await r.json();
+    dlg.close();
+    if (!editing) cam = saved.id;  // show the new camera when going back to the dashboard
+    await loadCams();
+    loop.now();
+  } finally { btn.disabled = false; btn.textContent = "Save"; }
+};
+
+$("del-cam").onclick = async () => {
+  if (!editing || !confirm(`Remove camera "${editing.name || editing.id}" from FreshWatch? Its alert history is kept.`)) return;
+  const r = await staffFetch(`/api/v1/settings/cameras/${encodeURIComponent(editing.id)}`, { method: "DELETE" }, "change camera settings");
+  if (r && r.ok) { dlg.close(); await loadCams(); }
+  else if (r) result(false, "Not removed", await errText(r));
+};
+
+$("scan").onclick = async () => {
+  const btn = $("scan"); btn.disabled = true; btn.textContent = "Scanning…";
+  $("found").innerHTML = `<div class="empty-st">Looking for cameras…</div>`;
+  try {
+    const r = await staffFetch("/api/v1/settings/discover", { method: "POST" }, "change camera settings");
+    if (!r || !r.ok) { $("found").innerHTML = `<div class="empty-st">Scan failed.</div>`; return; }
+    const list = await r.json();
+    const used = new Set(cams.filter(c => c.kind === "rtsp").map(c => c.host));
+    $("found").innerHTML = list.length ? list.map(d => `
+      <div class="found"><div>
+        <div><b class="mono">${esc(d.ip)}</b> ${esc(d.name || d.model || "ONVIF camera")}${d.model && d.model !== d.name ? ` <span class="sub2">${esc(d.model)}</span>` : ""}</div>
+        <div class="sub2">MAC <span class="mono">${esc(d.mac || "unknown")}</span>${used.has(d.ip) ? " · already added" : ""}</div></div>
+        <button class="btn lg" data-use="${esc(d.ip)}" data-mac="${esc(d.mac)}" data-name="${esc(d.name)}">Use</button></div>`).join("")
+      : `<div class="empty-st">No ONVIF cameras answered. Check that the camera is powered and plugged into the same network, or enter its IP address with “Add IP camera”.</div>`;
+    document.querySelectorAll("[data-use]").forEach(b => b.onclick = () =>
+      openCam(null, { host: b.dataset.use, name: b.dataset.name, brand: VENDOR_BY_MAC[b.dataset.mac.slice(0, 8).toLowerCase()] || "other" }));
+  } finally { btn.disabled = false; btn.textContent = "Scan network"; }
+};
+
+let tick = 0;
+async function loop() {
+  try {
+    const s = await api("/api/v1/status");
+    if (tick % 3 === 0) await refreshHistory(s);
+    render(s);
+    if (side === "log" && tick % 3 === 0) await renderLog();
+  } catch (e) {
+    $("overall").innerHTML = `<span class="dot" style="background:var(--spoiled)"></span><b>Service unreachable</b>`;
+  }
+  tick++;
+  clearTimeout(loop.timer);
+  loop.timer = setTimeout(loop, 2000);
+}
+loop.now = () => { clearTimeout(loop.timer); loop(); };
+loop();
+</script>
+</body>
+</html>

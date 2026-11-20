@@ -1,0 +1,29 @@
+{
+  "produce": [
+    "apple",
+    "banana",
+    "grape",
+    "guava",
+    "jujube",
+    "orange",
+    "pomegranate",
+    "strawberry"
+  ],
+  "freshness": [
+    "fresh",
+    "rotten"
+  ],
+  "input_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "arch": "mobilenet_v3_large_2head",
+  "dataset": "Project-AgML/fresh_rotten_fruit_classification (raw)"
+}

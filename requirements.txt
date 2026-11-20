@@ -1,0 +1,15 @@
+# Runtime (TensorRT 10.3, OpenCV 4.8 w/ GStreamer, GStreamer come from JetPack 6.x system packages)
+numpy>=1.24,<2
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.5
+pyyaml>=6
+prometheus-client>=0.20
+# Training / export only (torch + torchvision: install from the Jetson AI Lab index, see Makefile)
+pyarrow>=14
+onnx>=1.15
+pillow>=9
+# Tests
+pytest>=8
+httpx>=0.27
+ruff>=0.5

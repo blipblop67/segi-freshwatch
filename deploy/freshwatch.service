@@ -1,0 +1,34 @@
+[Unit]
+Description=SEGI FreshWatch - AI produce freshness monitoring
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freshwatch
+Group=freshwatch
+SupplementaryGroups=video render
+WorkingDirectory=/opt/freshwatch
+EnvironmentFile=-/etc/freshwatch/freshwatch.env
+Environment=FRESHWATCH_CUDA_LIB=/opt/freshwatch/build/libfreshcuda.so
+Environment=PYTHONUNBUFFERED=1
+# install.sh --showcase points this at the demo config with a drop-in (freshwatch.service.d/showcase.conf)
+Environment=FRESHWATCH_CONFIG=/etc/freshwatch/freshwatch.yaml
+ExecStartPre=/opt/freshwatch/.venv/bin/python -m freshwatch --config ${FRESHWATCH_CONFIG} --check
+ExecStart=/opt/freshwatch/.venv/bin/python -m freshwatch --config ${FRESHWATCH_CONFIG}
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/freshwatch
+StateDirectory=freshwatch
+# Keep memory in check on an 8 GB shared-memory device
+MemoryHigh=2G
+MemoryMax=3G
+
+[Install]
+WantedBy=multi-user.target

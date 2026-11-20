@@ -1,0 +1,177 @@
+# Customer showcase: one dashboard with
+#   * a simulated 90 s decay scenario (tools/make_demo_video.py, held-out test photos), and
+#   * four real market clips (free Pexels footage, data/real/SOURCES.md).
+# Run: make showcase   (http://<jetson-ip>:8080)
+#
+# Calibration notes for the real clips:
+#   T3 (red apples, dim wide shot) runs on colour analysis only: the current model is not yet
+#   reliable on that view (scored fresh apples ~50%). Re-enable after fine-tuning on site footage.
+#   The 40 px banana zone of the indoor market was dropped: zones under ~64 px are too small.
+site: {store_id: segi-wm-pilot, name: "SEGI Cash & Carry \xB7 Wet Market"}
+model: {engine: models/freshness_fp16.engine, labels: models/labels.json}
+scoring: {hysteresis_readings: 3}
+alerts: {cooldown_s: 60}
+storage: {db_path: data/showcase/freshwatch.db, persist_interval_s: 5, snapshot_dir: data/showcase/snapshots}
+cameras:
+- id: aisle3-sim
+  name: "Aisle 3 \xB7 Fruit display"
+  source: file:data/demo/shelf.mp4
+  width: 1280
+  height: 720
+  fps: 15
+  analyze_interval_s: 1.0
+  zones:
+  - id: A1
+    name: Banana crate
+    produce: banana
+    roi: [38, 78, 266, 279]
+  - id: A2
+    name: Strawberry crate
+    produce: strawberry
+    roi: [350, 78, 266, 279]
+  - id: A3
+    name: Jujube crate
+    produce: jujube
+    roi: [662, 78, 266, 279]
+  - id: A4
+    name: Grape crate
+    produce: grape
+    roi: [974, 78, 266, 279]
+  - id: B1
+    name: Apple crate
+    produce: apple
+    roi: [38, 403, 266, 279]
+  - id: B2
+    name: Orange crate
+    produce: orange
+    roi: [350, 403, 266, 279]
+  - id: B3
+    name: Guava crate
+    produce: guava
+    roi: [662, 403, 266, 279]
+  - id: B4
+    name: Pomegranate crate
+    produce: pomegranate
+    roi: [974, 403, 266, 279]
+  note: Simulated 90 s decay
+- id: stall-tagaytay
+  name: "Fruit stall \xB7 wide view"
+  source: file:data/real/tagaytay_stall.mp4
+  width: 1280
+  height: 720
+  fps: 24
+  analyze_interval_s: 1.0
+  zones:
+  - id: T1
+    name: Hanging bananas
+    produce: banana
+    roi: [600, 100, 400, 140]
+  - id: T2
+    name: Mandarins
+    produce: orange
+    roi: [600, 245, 120, 80]
+  - id: T3
+    name: Red apples
+    produce: apple
+    roi: [830, 250, 145, 95]
+    model_weight: 0.0
+  - id: T4
+    name: Green guava
+    produce: guava
+    roi: [935, 345, 70, 120]
+  - id: T5
+    name: Pomelo
+    produce: pomelo
+    roi: [1005, 335, 130, 135]
+  - id: T6
+    name: Lanzones
+    produce: lanzones
+    roi: [490, 300, 210, 145]
+  - id: T7
+    name: Dragon fruit
+    produce: dragon_fruit
+    roi: [300, 285, 95, 150]
+  - id: T8
+    name: Jackfruit halves
+    produce: jackfruit
+    roi: [10, 225, 215, 180]
+  - id: T9
+    name: Pineapples
+    produce: pineapple
+    roi: [15, 445, 375, 165]
+  note: Real market footage
+- id: wetmarket-indoor
+  name: Vegetable wet market
+  source: file:data/real/indoor_veg_market.mp4
+  width: 800
+  height: 360
+  fps: 30
+  analyze_interval_s: 1.0
+  zones:
+  - id: W1
+    name: Leafy greens
+    produce: sayur
+    roi: [25, 140, 135, 60]
+  - id: W2
+    name: Tomatoes
+    produce: tomato
+    roi: [415, 250, 70, 40]
+  - id: W3
+    name: Eggplant
+    produce: eggplant
+    roi: [495, 205, 65, 40]
+  - id: W4
+    name: Long beans
+    produce: long_bean
+    roi: [560, 225, 65, 75]
+  - id: W5
+    name: Sweet potato
+    produce: sweet_potato
+    roi: [580, 290, 100, 55]
+  note: Real market footage
+- id: stand-tropical
+  name: Tropical fruit stand
+  source: file:data/real/tropical_fruit_stand.mp4
+  width: 1280
+  height: 720
+  fps: 25
+  analyze_interval_s: 1.0
+  zones:
+  - id: F1
+    name: Green bananas
+    produce: banana
+    roi: [170, 330, 430, 230]
+  - id: F2
+    name: Ripe bananas (spotted)
+    produce: banana
+    roi: [640, 430, 510, 270]
+  - id: F3
+    name: Mangoes
+    produce: mango
+    roi: [830, 210, 230, 190]
+  - id: F4
+    name: Pomelo
+    produce: pomelo
+    roi: [0, 560, 480, 160]
+  note: Real market footage
+- id: veg-closeup
+  name: Vegetable counter
+  source: file:data/real/veg_stall_closeup.mp4
+  width: 1280
+  height: 720
+  fps: 30
+  analyze_interval_s: 1.0
+  zones:
+  - id: V1
+    name: Carrots
+    produce: carrot
+    roi: [0, 400, 320, 320]
+  - id: V2
+    name: Cucumbers
+    produce: cucumber
+    roi: [400, 170, 650, 520]
+  - id: V3
+    name: Sweet potato
+    produce: sweet_potato
+    roi: [0, 90, 450, 170]
+  note: Real market footage

@@ -1,0 +1,68 @@
+# SEGI FreshWatch - production configuration template.
+# Relative paths resolve from the project root. Secrets come from the
+# environment (FRESHWATCH_API_KEY, FRESHWATCH_WEBHOOK_URL), never this file.
+
+site:
+  store_id: segi-store-001
+  name: SEGI Cash & Carry - Wet Market
+  timezone: Asia/Kuala_Lumpur
+
+model:
+  engine: models/freshness_fp16.engine   # built on THIS device by `make engine`
+  labels: models/labels.json
+  max_batch: 16
+  required: true                         # false => run degraded on CUDA colour cues only
+
+color:                                   # CUDA HSV spoilage-cue kernel thresholds
+  brown_hue: [10, 40]
+  brown_sat_min: 0.30
+  brown_val: [0.12, 0.55]
+  dark_val_max: 0.16
+  mould_sat_max: 0.12
+  mould_val_min: 0.75
+  fg_sat_min: 0.18
+  fg_val_min: 0.14
+  sample_step: 2
+
+scoring:
+  model_weight: 0.8                      # score = 0.8 * P(fresh) + 0.2 * colour score
+  ema_alpha: 0.35
+  grades: {fresh: 0.75, aging: 0.55, stale: 0.35}
+  min_produce_confidence: 0.35
+  min_foreground_ratio: 0.12             # below => EMPTY (restock)
+  hysteresis_readings: 3                 # consecutive readings before a grade change is published
+
+alerts:
+  cooldown_s: 900
+  webhook_url: null                      # e.g. Slack/Teams/Telegram bridge; or FRESHWATCH_WEBHOOK_URL
+  alert_on: [stale, spoiled, empty, mismatch, camera_down]
+
+storage:
+  db_path: /var/lib/freshwatch/freshwatch.db
+  persist_interval_s: 60
+  retention_days: 30
+  snapshot_dir: /var/lib/freshwatch/snapshots
+
+api:
+  host: 0.0.0.0
+  port: 8080
+  preview_fps: 5
+
+log_level: INFO
+log_json: true
+
+cameras:
+  - id: aisle3-cam1
+    name: Aisle 3 - Fruit
+    source: rtsp://${CAM1_USER}:${CAM1_PASS}@192.168.1.64:554/Streaming/Channels/101   # H.264 IP cam (NVDEC); ${VARS} from env
+    # source: csi:0             # Jetson CSI camera (nvarguscamerasrc)
+    # source: usb:/dev/video0   # USB UVC camera, MJPEG
+    width: 1280
+    height: 720
+    fps: 15
+    analyze_interval_s: 5
+    zones:                      # pixel ROIs of each crate in the 1280x720 frame
+      - {id: A1, name: Banana crate,     produce: banana,     roi: [40, 80, 280, 280]}
+      - {id: A2, name: Apple crate,      produce: apple,      roi: [340, 80, 280, 280]}
+      - {id: A3, name: Orange crate,     produce: orange,     roi: [640, 80, 280, 280]}
+      - {id: A4, name: Strawberry punnets, produce: strawberry, roi: [940, 80, 280, 280]}

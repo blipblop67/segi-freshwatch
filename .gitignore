@@ -1,0 +1,13 @@
+.venv/
+build/
+data/
+logs/
+models/*.pt
+__pycache__/
+.pytest_cache/
+# Built or downloaded model files (rebuild with `make model engine detector`)
+models/*.engine
+models/*.onnx
+models/detector/
+.ruff_cache/
+*.db

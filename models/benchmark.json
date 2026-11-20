@@ -1,0 +1,64 @@
+{
+  "device": {
+    "name": "Orin",
+    "sm": "8.7",
+    "total_mem": 7976906752
+  },
+  "accuracy_production_path": {
+    "n": 342,
+    "freshness_acc": 0.9941520467836257,
+    "produce_acc": 1.0,
+    "confusion_fresh_rotten": [
+      [
+        172,
+        0
+      ],
+      [
+        2,
+        168
+      ]
+    ]
+  },
+  "latency": [
+    {
+      "zones": 1,
+      "total_ms_p50": 3.682,
+      "total_ms_p99": 4.856,
+      "preprocess+stats_ms_p50": 0.378,
+      "preprocess+stats_ms_p99": 0.52,
+      "trt_ms_p50": 3.293,
+      "trt_ms_p99": 4.301,
+      "zones_per_s": 271.6
+    },
+    {
+      "zones": 4,
+      "total_ms_p50": 4.999,
+      "total_ms_p99": 5.092,
+      "preprocess+stats_ms_p50": 0.382,
+      "preprocess+stats_ms_p99": 0.419,
+      "trt_ms_p50": 4.623,
+      "trt_ms_p99": 4.701,
+      "zones_per_s": 800.2
+    },
+    {
+      "zones": 8,
+      "total_ms_p50": 8.11,
+      "total_ms_p99": 8.24,
+      "preprocess+stats_ms_p50": 0.48,
+      "preprocess+stats_ms_p99": 0.544,
+      "trt_ms_p50": 7.629,
+      "trt_ms_p99": 7.748,
+      "zones_per_s": 986.4
+    },
+    {
+      "zones": 16,
+      "total_ms_p50": 14.637,
+      "total_ms_p99": 14.808,
+      "preprocess+stats_ms_p50": 0.674,
+      "preprocess+stats_ms_p99": 0.744,
+      "trt_ms_p50": 13.961,
+      "trt_ms_p99": 14.101,
+      "zones_per_s": 1093.1
+    }
+  ]
+}

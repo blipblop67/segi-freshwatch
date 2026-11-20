@@ -1,0 +1,17 @@
+services:
+  freshwatch:
+    image: segi/freshwatch:1.2.0
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    runtime: nvidia
+    restart: unless-stopped
+    network_mode: host            # RTSP cameras on the store LAN
+    env_file: /etc/freshwatch/freshwatch.env
+    volumes:
+      - /etc/freshwatch/freshwatch.yaml:/etc/freshwatch/freshwatch.yaml:ro
+      - ../models:/opt/freshwatch/models:ro
+      - freshwatch-data:/var/lib/freshwatch
+      - /tmp/argus_socket:/tmp/argus_socket   # CSI cameras only
+    # devices: ["/dev/video0:/dev/video0"]    # USB cameras only
+
+volumes:
+  freshwatch-data:

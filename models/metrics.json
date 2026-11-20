@@ -1,0 +1,30 @@
+{
+  "test": {
+    "n": 342,
+    "produce_acc": 1.0,
+    "freshness_acc": 1.0,
+    "rotten_recall": 1.0,
+    "fresh_recall": 1.0,
+    "confusion_fresh_rotten": [
+      [
+        172,
+        0
+      ],
+      [
+        0,
+        170
+      ]
+    ],
+    "freshness_acc_by_produce": {
+      "apple": 1.0,
+      "banana": 1.0,
+      "grape": 1.0,
+      "guava": 1.0,
+      "jujube": 1.0,
+      "orange": 1.0,
+      "pomegranate": 1.0,
+      "strawberry": 1.0
+    }
+  },
+  "epochs": 12
+}
