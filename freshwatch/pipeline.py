@@ -91,9 +91,10 @@ class CameraWorker:
         # A detected item is never "empty", and finds come and go, so grade after 2 agreeing readings.
         self.scoring = settings.scoring.model_copy(update={"min_foreground_ratio": 0.0, "hysteresis_readings": 2}) \
             if cam.detect else settings.scoring
-        self.zone_cfgs = {z.id: z for z in cam.zones}
+        zones = [] if cam.detect else cam.zones  # saved zones are kept for when detect is turned off
+        self.zone_cfgs = {z.id: z for z in zones}
 
-        self.states = {z.id: ZoneState(cam.id, z.id, z.name, z.produce, z.roi) for z in cam.zones}
+        self.states = {z.id: ZoneState(cam.id, z.id, z.name, z.produce, z.roi) for z in zones}
         self._state_lock = threading.Lock()
         self._mismatch_count: dict[str, int] = {}
         self._last_persist: dict[str, float] = {}
